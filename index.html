@@ -1,111 +1,74 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UOR Virtual Vesak Lantern</title>
-    <!-- A-Frame Library -->
+    <meta charset="utf-8">
+    <title>UOR Virtual Vesak</title>
     <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
-    <!-- AR.js for A-Frame -->
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <style>
+        .arjs-loader {
+            height: 100%; width: 100%; position: absolute; top: 0; left: 0;
+            background-color: rgba(0, 0, 0, 0.8); z-index: 9999;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .arjs-loader div { text-align: center; color: white; font-family: sans-serif; }
+    </style>
 </head>
 
-<body style="margin: 0; overflow: hidden;">
-this is body
-    <!-- Interaction Script -->
-    <script>
-        AFRAME.registerComponent('lantern-interaction', {
-            init: function () {
-                let el = this.el;
-                let colors = ['#FFD700', '#FF4500', '#FF0000', '#FFFFFF', '#0000FF'];
-                let i = 0;
+<body style="margin: 0px; overflow: hidden;">
+    <!-- Loading Screen while AR.js initializes -->
+    <div class="arjs-loader">
+        <div>Loading UOR Vesak Experience...<br>Please allow camera access.</div>
+    </div>
 
-                // Event listener for user tap/click
-                el.addEventListener('click', function () {
-                    i = (i + 1) % colors.length;
-                    // Change the color of the lantern model
-                    el.setAttribute('material', 'color', colors[i]);
-                    
-                    // Visual feedback: brief scale-up effect
-                    el.setAttribute('animation__click', {
-                        property: 'scale',
-                        to: '1.2 1.2 1.2',
-                        dur: 100,
-                        dir: 'alternate',
-                        loop: 1
-                    });
-                    console.log("Lantern color changed to: " + colors[i]);
-                });
-            }
-        });
-    </script>
-
-    <!-- AR Scene -->
-    <!-- we add raycaster and cursor to enable clicking on 3D objects -->
-    <a-scene 
-        embedded 
-        arjs="sourceType: webcam; debugUIEnabled: false;"
+    <a-scene
+        embedded
+        vr-mode-ui="enabled: false;"
+        renderer="logarithmicDepthBuffer: true;"
+        arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
         cursor="fuse: false; rayOrigin: mouse"
-        raycaster="objects: .interactive">
+        raycaster="objects: .clickable">
 
         <!-- Asset Management -->
         <a-assets>
-            <!-- 
-              Replace 'lantern.glb' with your actual model path. 
-              If you don't have one yet, I've used a primitive box below 
-              so you can test the logic immediately.
-            -->
-            <a-asset-item id="lantern-model" src="Lantern_01_4k.gltf\Lantern_01_4k.gltf"></a-asset-item>
+            <!-- Example: Use your GitHub path here if different -->
+            <a-asset-item id="lantern" src="assets/Lantern_01_4k.gltf"></a-asset-item>
         </a-assets>
 
-        <!-- The Marker (Using the standard Hiro marker) -->
-        <a-marker preset="hiro">
-            
-            <!-- The Lantern Entity -->
-            <a-entity 
-                id="myLantern"
-                class="interactive"
-                lantern-interaction
-                position="0 0.5 0" 
+        <!-- HIRO MARKER -->
+        <a-marker preset="hiro" id="marker">
+            <!-- The Lantern -->
+            <a-entity
+                class="clickable"
+                id="vesak-model"
+                position="0 0.5 0"
                 scale="1 1 1"
-                rotation="0 0 0"
-                /* If using a GLB model, uncomment the line below */
-                /* gltf-model="#lantern-model" */
-                
-                /* Temporary Placeholder (Box) so you can test right now */
-                geometry="primitive: box; height: 1; width: 1; depth: 1"
-                material="color: #FFD700; opacity: 0.8; transparent: true"
-                
-                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
-                
-                <!-- Inner Light Effect -->
-                <a-light type="point" intensity="2" distance="5" color="orange" position="0 0 0"></a-light>
+                /* Swap this line when your GLB is ready: gltf-model="#lantern" */
+                gltf-model="#lantern" 
+                /* geometry="primitive: cylinder; segmentsRadial: 6; height: 1.2" */
+                material="color: #f1c40f; emissive: #f1c40f; emissiveIntensity: 0.5"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 10000; easing: linear">
             </a-entity>
 
-            <!-- Decorative Text -->
-            <a-text 
-                value="Happy Vesak - UOR" 
-                position="0 1.5 0" 
-                align="center" 
-                color="#FFFFFF" 
-                scale="0.8 0.8 0.8">
-            </a-text>
-
+            <a-text value="UOR VESAK 2026" position="0 1.2 0" align="center" rotation="-90 0 0" color="#FFFFFF"></a-text>
         </a-marker>
 
-        <!-- Static Camera -->
         <a-entity camera></a-entity>
-
     </a-scene>
-    <script>
-  window.addEventListener('camera-init', (data) => {
-      console.log('camera-init', data);
-  })
 
-  window.addEventListener('camera-error', (error) => {
-      console.log('camera-error', error);
-      alert("Camera error: Check HTTPS or Permissions!");
-  })
-</script>
+    <script>
+        // Remove loader when the marker is detected or scene loaded
+        window.addEventListener('arjs-video-loaded', () => {
+            document.querySelector('.arjs-loader').style.display = 'none';
+        });
+
+        // Simple interaction: Change color on click
+        document.querySelector('#vesak-model').addEventListener('click', function () {
+            const colors = ['#f1c40f', '#e67e22', '#e74c3c', '#ffffff'];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            this.setAttribute('material', 'color', randomColor);
+            this.setAttribute('material', 'emissive', randomColor);
+        });
+    </script>
 </body>
 </html>
