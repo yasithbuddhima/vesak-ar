@@ -30,7 +30,53 @@
 
   <body style="margin: 0px; overflow: hidden">
     <div class="arjs-loader">
-      <div>Loading UOR NFT Marker...<br />This may take a moment.</div>
+      <div>Initializing Location Services...<br />Requesting GPS access...</div>
+    </div>
+
+    <!-- Location Info HUD -->
+    <div
+      id="location-info"
+      style="
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        background: rgba(0, 0, 0, 0.7);
+        color: #00ff00;
+        padding: 15px;
+        border-radius: 8px;
+        font-family: monospace;
+        font-size: 14px;
+        z-index: 1000;
+        min-width: 280px;
+        display: none;
+        border: 2px solid #00ff00;
+      "
+    >
+      <div><strong>📍 Your Location:</strong></div>
+      <div id="user-coords">Lat: --, Lon: --</div>
+      <div
+        style="
+          margin-top: 10px;
+          border-top: 1px solid #00ff00;
+          padding-top: 10px;
+        "
+      >
+        <div><strong>🎯 Target Location:</strong></div>
+        <div id="target-coords">Lat: 5.946678, Lon: 80.566853</div>
+      </div>
+      <div
+        style="
+          margin-top: 10px;
+          border-top: 1px solid #00ff00;
+          padding-top: 10px;
+        "
+      >
+        <div id="distance-info">Distance: calculating...</div>
+        <div id="direction-info">Direction: calculating...</div>
+      </div>
+      <div style="margin-top: 10px; font-size: 12px; opacity: 0.8">
+        <div id="accuracy-info">Accuracy: --m</div>
+      </div>
     </div>
 
     <a-scene
@@ -71,14 +117,156 @@
     </a-scene>
 
     <script>
-      window.addEventListener("arjs-nft-loaded", () => {
-        document.querySelector(".arjs-loader").style.display = "none";
-        console.log("NFT Marker Data Loaded Successfully");
+      // Target location for the AR object
+      const TARGET_LAT = 5.946678;
+      const TARGET_LON = 80.566853;
+      const PROXIMITY_RADIUS = 50; // meters
+
+      let userLocation = null;
+      let watchId = null;
+
+      // Function to calculate distance between two coordinates (Haversine formula)
+      function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371000; // Earth's radius in meters
+        const dLat = ((lat2 - lat1) * Math.PI) / 180;
+        const dLon = ((lon2 - lon1) * Math.PI) / 180;
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos((lat1 * Math.PI) / 180) *
+            Math.cos((lat2 * Math.PI) / 180) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      }
+
+      // Function to calculate bearing (direction)
+      function calculateBearing(lat1, lon1, lat2, lon2) {
+        const dLon = ((lon2 - lon1) * Math.PI) / 180;
+        const lat1Rad = (lat1 * Math.PI) / 180;
+        const lat2Rad = (lat2 * Math.PI) / 180;
+        const y = Math.sin(dLon) * Math.cos(lat2Rad);
+        const x =
+          Math.cos(lat1Rad) * Math.sin(lat2Rad) -
+          Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+        const bearing = (Math.atan2(y, x) * 180) / Math.PI;
+        return (bearing + 360) % 360;
+      }
+
+      // Get compass direction from bearing
+      function getCompassDirection(bearing) {
+        const directions = [
+          "N",
+          "NNE",
+          "NE",
+          "ENE",
+          "E",
+          "ESE",
+          "SE",
+          "SSE",
+          "S",
+          "SSW",
+          "SW",
+          "WSW",
+          "W",
+          "WNW",
+          "NW",
+          "NNW",
+        ];
+        const index = Math.round(bearing / 22.5) % 16;
+        return directions[index];
+      }
+
+      // Update location info display
+      function updateLocationInfo() {
+        if (!userLocation) return;
+
+        const userCoords = document.getElementById("user-coords");
+        const distanceInfo = document.getElementById("distance-info");
+        const directionInfo = document.getElementById("direction-info");
+        const accuracyInfo = document.getElementById("accuracy-info");
+
+        userCoords.textContent = `Lat: ${userLocation.lat.toFixed(6)}, Lon: ${userLocation.lon.toFixed(6)}`;
+        accuracyInfo.textContent = `Accuracy: ${Math.round(userLocation.accuracy)}m`;
+
+        const distance = calculateDistance(
+          userLocation.lat,
+          userLocation.lon,
+          TARGET_LAT,
+          TARGET_LON,
+        );
+        const bearing = calculateBearing(
+          userLocation.lat,
+          userLocation.lon,
+          TARGET_LAT,
+          TARGET_LON,
+        );
+        const direction = getCompassDirection(bearing);
+
+        distanceInfo.textContent = `📏 Distance: ${distance.toFixed(1)}m`;
+        directionInfo.textContent = `🧭 Direction: ${direction} (${bearing.toFixed(0)}°)`;
+
+        if (distance < PROXIMITY_RADIUS) {
+          distanceInfo.style.color = "#00ff00";
+          directionInfo.style.color = "#00ff00";
+          directionInfo.textContent += " ✅ YOU ARE HERE!";
+        } else {
+          distanceInfo.style.color = "#00ff00";
+          directionInfo.style.color = "#ffaa00";
+        }
+      }
+
+      // Start geolocation tracking
+      function startLocationTracking() {
+        if ("geolocation" in navigator) {
+          // Request one-time high accuracy location
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              userLocation = {
+                lat: position.coords.latitude,
+                lon: position.coords.longitude,
+                accuracy: position.coords.accuracy,
+              };
+              document.querySelector(".arjs-loader").style.display = "none";
+              document.getElementById("location-info").style.display = "block";
+              updateLocationInfo();
+              console.log("✅ Location acquired:", userLocation);
+            },
+            (error) => {
+              console.error("❌ Location error:", error);
+              alert("Please enable location services on your device");
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+          );
+
+          // Watch for continuous location updates
+          watchId = navigator.geolocation.watchPosition(
+            (position) => {
+              userLocation = {
+                lat: position.coords.latitude,
+                lon: position.coords.longitude,
+                accuracy: position.coords.accuracy,
+              };
+              updateLocationInfo();
+            },
+            (error) => console.error("Location watch error:", error),
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 },
+          );
+        } else {
+          alert("Geolocation not supported on this device");
+        }
+      }
+
+      // Start when page loads
+      window.addEventListener("load", () => {
+        startLocationTracking();
       });
 
-      window.addEventListener("markerFound", () => {
-        console.log("🎯 Marker Found!");
-        <!-- alert("Vesak Lantern should be visible now!"); -->
+      // Cleanup on page unload
+      window.addEventListener("beforeunload", () => {
+        if (watchId) {
+          navigator.geolocation.clearWatch(watchId);
+        }
       });
     </script>
   </body>
